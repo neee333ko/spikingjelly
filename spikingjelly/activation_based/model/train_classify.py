@@ -810,7 +810,7 @@ class Trainer_step:
         print(f'Train: train_acc1={train_acc1:.3f}, train_acc5={train_acc5:.3f}, train_loss={train_loss:.6f}, samples/s={metric_logger.meters["img/s"]}')
         return train_loss, train_acc1, train_acc5
 
-    def evaluate(self, args, model, criterion, data_loader, device, num_classes, log_suffix=""):
+    def evaluate(self, args, model, criterion, data_loader, tb_writer, device, num_classes, log_suffix=""):
         model.eval()
         metric_logger = utils.MetricLogger(delimiter="  ")
         header = f"Test: {log_suffix}"
@@ -1203,13 +1203,15 @@ class Trainer_step:
 
         if utils.is_main_process():
             os.makedirs(tb_dir, exist_ok=True)
-            os.makedirs(pt_dir, exist_ok=True)
+            
+            if not args.test_only:
+                os.makedirs(pt_dir, exist_ok=True)
 
         if args.resume is not None:
             if args.resume == 'latest':
-                checkpoint = torch.load(os.path.join(pt_dir, 'checkpoint_latest.pth'), map_location="cpu")
+                checkpoint = torch.load(os.path.join(pt_dir, 'checkpoint_latest.pth'), map_location="cpu", weights_only=False)
             else:
-                checkpoint = torch.load(args.resume, map_location="cpu")
+                checkpoint = torch.load(args.resume, map_location="cpu", weights_only=False)
             model_without_ddp.load_state_dict(checkpoint["model"])
             if not args.test_only:
                 optimizer.load_state_dict(checkpoint["optimizer"])
@@ -1236,12 +1238,12 @@ class Trainer_step:
             if model_ema:
                 max_ema_test_acc1 = -1.
 
-
+        print(1)
         if args.test_only:
             if model_ema:
-                self.evaluate(args, model_ema, criterion, data_loader_test, device=device, num_classes=num_classes, log_suffix="EMA")
+                self.evaluate(args, model_ema, criterion, data_loader_test, tb_writer, device=device, num_classes=num_classes, log_suffix="EMA")
             else:
-                self.evaluate(args, model, criterion, data_loader_test, num_classes=num_classes, device=device)
+                self.evaluate(args, model, criterion, data_loader_test, tb_writer, device=device, num_classes=num_classes)
             return
 
 
